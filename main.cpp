@@ -11,15 +11,14 @@
 unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 std::default_random_engine generator(seed);
 std::uniform_real_distribution<float> canonical(0.0f, 1.0f);
-std::normal_distribution<float> gaussi(0.0f, 0.3f);
+std::normal_distribution<float> gaussi(0.0f, 0.25f);
 
 vec3 color(const ray& r, hitable* world, int recursion_depth);
 
 int main(int argc, char const* argv[])
 {
     hitable* list[5];
-    list[0] = new sphere{vec3{0.0f, 0.0f, -1.0f}, 0.5f,
-                         new dielectric(2.3f)};
+    list[0] = new sphere{vec3{0.0f, 0.0f, -1.0f}, 0.5f, new dielectric(2.3f)};
     list[1] = new sphere{vec3{0.0f, 0.0f, -1.0f}, 0.1f,
                          new diffuse(random_canonical())};
     list[2] = new sphere{vec3{0.0f, -100.5f, -1.0f}, 100.0f,
@@ -27,14 +26,15 @@ int main(int argc, char const* argv[])
     list[3] =
         new sphere{vec3{1.0f, -0.0f, -2.0f}, 0.5f,
                    new specular(random_canonical(), canonical(generator))};
-    list[4] =
-        new sphere{vec3{-1.0f, 0.0f, -1.0f}, 0.5f,
-                   new specular(random_canonical(), 0.0f)};
+    list[4] = new sphere{vec3{-1.0f, 0.0f, -1.0f}, 0.5f,
+                         new specular(random_canonical(), 0.0f)};
     hitable* world = new hitable_list{list, 5};
-    camera cam{};
-    int width = 720;
-    int height = 360;
-    int samples = 100;  // number of samples per pixel
+    int width = 384;
+    int height = 216;
+    int samples = 200;  // number of samples per pixel
+    camera cam{90.0f, float(width) / float(height), vec3{-2.0f, 2.0f, 1.0f},
+               vec3{0.0f, 0.0f, -1.0f}};
+
     std::cout << "P3\n" << width << " " << height << "\n255\n";
     for (int j = height - 1; j >= 0; j--) {
         for (int i = 0; i < width; i++) {
