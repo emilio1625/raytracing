@@ -1,13 +1,6 @@
 //=============================================================================
-// Written in 2016 by Peter Shirley <ptrshrl@gmail.com>
+//  Heavily based on the work of Peter Shirley and Roger Allen
 //
-// To the extent possible under law, the author(s) have dedicated all copyright
-// and related and neighboring rights to this software to the public domain
-// worldwide. This software is distributed without any warranty.
-//
-// You should have received a copy (see file COPYING.txt) of the CC0 Public
-// Domain Dedication along with this software. If not, see
-// <http://creativecommons.org/publicdomain/zero/1.0/>.
 //=============================================================================
 
 // Modified by Emilio Cabrera <emilio1625@gmail.com>
@@ -15,13 +8,13 @@
 #ifndef _MATERIAL_H_
 #define _MATERIAL_H_
 
-#include "hitable.hpp"
-#include "ray.hpp"
+#include "hitable.cuh"
+#include "ray.cuh"
 
 struct hit_record;
 
 /* Linear interpolation */
-inline vec3 lerp(float t, const vec3& start, const vec3& stop)
+__device__ inline vec3 lerp(float t, const vec3& start, const vec3& stop)
 {
     return (1.0f - t) * start + t * stop;
 }
@@ -29,11 +22,11 @@ inline vec3 lerp(float t, const vec3& start, const vec3& stop)
 /* Aproximacion de Schlick
  * https://en.wikipedia.org/wiki/Schlick%27s_approximation
  */
-float schlick(float cosine, float ref_idx)
+__device__ float schlick(float cosine, float ref_idx)
 {
-    float r0 = (1 - ref_idx) / (1 + ref_idx);
+    float r0 = (1.0f - ref_idx) / (1.0f + ref_idx);
     r0 = r0 * r0;
-    return r0 + (1 - r0) * pow((1 - cosine), 5);
+    return r0 + (1.0f - r0) * pow((1.0f - cosine), 5);
 }
 
 /* Verifica si un rayo puede ser refractado
@@ -42,12 +35,15 @@ float schlick(float cosine, float ref_idx)
  * ver la implementacion de la clase dielectric
  *   refracted (vec3): parametro de salida, el rayo refractado
  */
-bool refract(const vec3& v, const vec3& n, float ni_over_nt, vec3& refracted)
+__device__ bool refract(const vec3& v,
+                        const vec3& n,
+                        float ni_over_nt,
+                        vec3& refracted)
 {
     vec3 uv = unit_vector(v);
     float dt = dot(uv, n);
-    float discriminant = 1.0 - ni_over_nt * ni_over_nt * (1 - dt * dt);
-    if (discriminant > 0) {
+    float discriminant = 1.0f - ni_over_nt * ni_over_nt * (1.0f - dt * dt);
+    if (discriminant > 0.0f) {
         refracted = ni_over_nt * (uv - n * dt) - n * sqrt(discriminant);
         return true;
     } else
@@ -55,9 +51,9 @@ bool refract(const vec3& v, const vec3& n, float ni_over_nt, vec3& refracted)
 }
 
 /* Refleccion especular perfecta */
-vec3 reflect(const vec3& v, const vec3& n)
+__device__ vec3 reflect(const vec3& v, const vec3& n)
 {
-    return v - 2 * dot(v, n) * n;
+    return v - 2.0f * dot(v, n) * n;
 }
 
 /* Clase virtual, todos los materiales deben implementar una funcion que
@@ -68,10 +64,11 @@ vec3 reflect(const vec3& v, const vec3& n)
 class material
 {
 public:
-    virtual bool scatter(const ray& r,
-                         const hit_record& rec,
-                         vec3& attenuation,
-                         ray& scattered) const = 0;
+    __device__ virtual bool scatter(const ray& r,
+                                    const hit_record& rec,
+                                    vec3& attenuation,
+                                    ray& scattered,
+                                    curandState* rand_state) const = 0;
 };
 
 /* Modelo de iluminacion de Lambert
@@ -85,13 +82,14 @@ public:
 class diffuse : public material
 {
 public:
-    diffuse(const vec3& a) : attenuation(a) {}
-    virtual bool scatter(const ray& r,
-                         const hit_record& rec,
-                         vec3& attenuation,
-                         ray& scattered) const
+    __device__ diffuse(const vec3& a) : attenuation(a) {}
+    __device__ virtual bool scatter(const ray& r,
+                                    const hit_record& rec,
+                                    vec3& attenuation,
+                                    ray& scattered,
+                                    curandState* rand_state) const
     {
-        vec3 target = rec.p + rec.normal + random_in_unit_sphere();
+        vec3 target = rec.p + rec.normal + random_in_unit_sphere(rand_state);
         scattered = ray(rec.p, target - rec.p);
         attenuation = diffuse::attenuation;
         return true;
@@ -110,20 +108,21 @@ public:
 class specular : public material
 {
 public:
-    specular(const vec3& a, float fuzziness) : attenuation(a)
+    __device__ specular(const vec3& a, float fuzziness) : attenuation(a)
     {
         if (fuzziness < 1.0f)
             specular::fuzziness = fuzziness;
         else
             specular::fuzziness = 1.0f;
     }
-    virtual bool scatter(const ray& r,
-                         const hit_record& rec,
-                         vec3& attenuation,
-                         ray& scattered) const
+    __device__ virtual bool scatter(const ray& r,
+                                    const hit_record& rec,
+                                    vec3& attenuation,
+                                    ray& scattered,
+                                    curandState* rand_state) const
     {
         vec3 reflected = reflect(unit_vector(r.direction()), rec.normal);
-        scattered = ray(rec.p, reflected + fuzziness * random_in_unit_sphere());
+        scattered = ray(rec.p, reflected + fuzziness * random_in_unit_sphere(rand_state));
         attenuation = specular::attenuation;
         return (dot(scattered.direction(), rec.normal) > 0.0f);
     }
@@ -161,7 +160,7 @@ public:
 class dielectric : public material
 {
 public:
-    dielectric(float ri) : ref_idx(ri) {}
+    __device__ dielectric(float ri) : ref_idx(ri) {}
 
     /*
      * Nota sobre la implementacion:
@@ -174,20 +173,21 @@ public:
      * TODO:
      *   - Optimizar esta funcion
      */
-    virtual bool scatter(const ray& r,
-                         const hit_record& rec,
-                         vec3& attenuation,
-                         ray& scattered) const
+    __device__ virtual bool scatter(const ray& r,
+                                    const hit_record& rec,
+                                    vec3& attenuation,
+                                    ray& scattered,
+                                    curandState* rand_state) const
     {
         vec3 outward_normal;
         vec3 reflected = reflect(r.direction(), rec.normal);
         float ni_over_nt;
-        attenuation = vec3(1.0, 1.0, 1.0);
+        attenuation = vec3(1.0f, 1.0f, 1.0f);
         vec3 refracted;
         float reflect_prob;
         float cosine;
         // el rayo viene de dentro o de fuera?
-        if (dot(r.direction(), rec.normal) > 0) {
+        if (dot(r.direction(), rec.normal) > 0.0f) {
             outward_normal = -rec.normal;
             ni_over_nt = ref_idx;
             //         cosine = ref_idx * dot(r.direction(), rec.normal) /
@@ -196,16 +196,16 @@ public:
             cosine = sqrt(1 - ref_idx * ref_idx * (1 - cosine * cosine));
         } else {
             outward_normal = rec.normal;
-            ni_over_nt = 1.0 / ref_idx;
+            ni_over_nt = 1.0f / ref_idx;
             cosine = -dot(r.direction(), rec.normal) / r.direction().length();
         }
         // se puede refractar?
         if (refract(r.direction(), outward_normal, ni_over_nt, refracted))
             reflect_prob = schlick(cosine, ref_idx);
         else
-            reflect_prob = 1.0;
+            reflect_prob = 1.0f;
         // refractamos o reflejamos aleatoriamente
-        if (drand48() < reflect_prob)
+        if (curand_uniform(rand_state) < reflect_prob)
             scattered = ray(rec.p, reflected);
         else
             scattered = ray(rec.p, refracted);
