@@ -15,10 +15,14 @@
 /* Constants */
 
 #define MAX_RECURSION 20
+#define MEAN 0.0f
+#define STD 0.3f
 
 /* Macros */
 
 #define checkCudaErrors(val) check_cuda((val), #val, __FILE__, __LINE__)
+#define cudaNormalDistribution(mean, std, state) \
+    (curand_normal(state) * float(std)) + float(mean)
 
 /* Variable declaration */
 
@@ -52,7 +56,8 @@ __global__ void create_world(hitable** list,
                              const vec3 pos,
                              const vec3 look_at,
                              int width,
-                             int height);
+                             int height,
+                             curandState* rand_state);
 // Frees the world in the only possible way, destroying it :)
 __global__ void destroy_world(hitable** list,
                               size_t count,
@@ -63,10 +68,10 @@ __global__ void destroy_world(hitable** list,
 
 int main(int argc, char const* argv[])
 {
-    int width = 384;
-    int height = 216;
+    int width = 640;
+    int height = 480;
     int pixels = width * height;
-    int samples = 200;   // number of samples per pixel
+    int samples = 100;   // number of samples per pixel
     int tx = 8, ty = 8;  // threads
 
     size_t fb_size = pixels * sizeof(vec3);  // image size
@@ -75,13 +80,18 @@ int main(int argc, char const* argv[])
     vec3* fb;
     checkCudaErrors(cudaMallocManaged((void**)&fb, fb_size));
 
-    // random state
+    // random states
     curandState* rand_state_d;
+    curandState *world_rand_state_d;
+    // for image rendering
     checkCudaErrors(
         cudaMalloc((void**)&rand_state_d, pixels * sizeof(curandState)));
+    // for world creation
+    checkCudaErrors(
+        cudaMalloc((void**)&world_rand_state_d, sizeof(curandState)));
 
     // array of objects to hit
-    size_t hitable_count = 2;
+    size_t hitable_count = 4;
     hitable** list_d;
     checkCudaErrors(
         cudaMalloc((void**)&list_d, hitable_count * sizeof(hitable*)));
@@ -95,8 +105,8 @@ int main(int argc, char const* argv[])
     checkCudaErrors(cudaMalloc((void**)&camera_d, sizeof(camera*)));
 
     // build the world
-    create_world<<<1, 1>>>(list_d, hitable_count, world_d, camera_d, 90.0,
-                           vec3(0, 2, 3), vec3(0, 0, 0), width, height);
+    create_world<<<1, 1>>>(list_d, hitable_count, world_d, camera_d, 90.0f,
+                           vec3(0.0f, 0.0f, 1.0f), vec3(0.0f, 0.0f, -1.0f), width, height, world_rand_state_d);
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 
@@ -131,6 +141,7 @@ int main(int argc, char const* argv[])
     checkCudaErrors(cudaFree(world_d));
     checkCudaErrors(cudaFree(list_d));
     checkCudaErrors(cudaFree(rand_state_d));
+    checkCudaErrors(cudaFree(world_rand_state_d));
     checkCudaErrors(cudaFree(fb));
 
     cudaDeviceReset();
@@ -159,10 +170,10 @@ __device__ vec3 color(const ray& r, hitable** world, curandState* local_state)
     ray cur_ray = r;
     vec3 cur_att = vec3(1.0f, 1.0f, 1.0f);
     hit_record rec;
+    ray scattered;     // output parameter
+    vec3 attenuation;  // output parameter
     for (int i = 0; i < MAX_RECURSION; i++) {
         if ((*world)->hit(cur_ray, 0.001f, MAXFLOAT, rec)) {
-            ray scattered;     // output parameter
-            vec3 attenuation;  // output parameter
             if (rec.mat_ptr->scatter(cur_ray, rec, attenuation, scattered,
                                      local_state)) {
                 cur_att *= attenuation;
@@ -173,7 +184,7 @@ __device__ vec3 color(const ray& r, hitable** world, curandState* local_state)
         } else {
             vec3 unit_dir = unit_vector(cur_ray.direction());
             float t = 0.5 * (unit_dir.y() + 1.0f);
-            return lerp(t, vec3(1.0f, 1.0f, 1.0f), vec3(0.5f, 0.7f, 1.0f));
+            return cur_att * lerp(t, vec3(1.0f, 1.0f, 1.0f), vec3(0.5f, 0.7f, 1.0f));
         }
     }
     return vec3(0.0f, 0.0f, 0.0f);
@@ -207,7 +218,9 @@ __global__ void render(vec3* fb,
     vec3 col(0.0f, 0.0f, 0.0f);
 
     for (int k = 0; k < samples; k++) {
+        /* u = float(i + cudaNormalDistribution(MEAN, STD, &local_state)) / float(width); */
         u = float(i + curand_uniform(&local_state)) / float(width);
+        /* v = float(j + cudaNormalDistribution(MEAN, STD, &local_state)) / float(height); */
         v = float(j + curand_uniform(&local_state)) / float(height);
         ray r = (*cam)->get_ray(u, v);
         col += color(r, world, &local_state);
@@ -229,13 +242,20 @@ __global__ void create_world(hitable** list,
                              const vec3 pos,
                              const vec3 look_at,
                              int width,
-                             int height)
+                             int height,
+                             curandState *rand_state)
 {
     if (threadIdx.x == 0 && blockIdx.x == 0) {  // instantiate only once
+        curand_init(0, 0, 0, rand_state);
+        curandState local_state = *rand_state;
         list[0] =
-            new sphere(vec3(0.0f, 0.0f, -1.0f), 0.5f, new dielectric(2.3f));
+            new sphere(vec3(0.0f, 0.0f, -1.0f), 0.5f, new diffuse(vec3(0.1f, 0.2f, 0.5f)));
         list[1] = new sphere(vec3(0.0f, -100.5f, -1.0f), 100.0f,
-                             new diffuse(vec3(0.1f, 0.5f, 0.7f)));
+                             new diffuse(vec3(0.8f, 0.8f, 0.0f)));
+        list[2] =
+            new sphere(vec3(-1.0f, 0.0f, -1.0f), 0.5f, new specular(random_canonical(&local_state), 0.0f));
+        list[3] =
+            new sphere(vec3(1.0f, 0.0f, -1.0f), 0.5f, new dielectric(2.3f));
         *world = new hitable_list(list, count);
         *cam = new camera(fov, float(width) / float(height), pos, look_at);
     }
