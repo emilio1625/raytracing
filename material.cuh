@@ -90,7 +90,12 @@ public:
                                     curandState* rand_state) const
     {
         vec3 target = rec.p + rec.normal + random_in_unit_sphere(rand_state);
-        scattered = ray(rec.p, target - rec.p);
+        scattered =
+            ray(rec.p, target - rec.p,
+                r.time());  // en realidad el rayo se reflejaria un poco
+                            // despues, pero has visto la velocidad de la luz?
+        // seria un ejercicio interesante ver el efecto de añadir un delay al
+        // rayo
         attenuation = diffuse::attenuation;
         return true;
     }
@@ -122,7 +127,8 @@ public:
                                     curandState* rand_state) const
     {
         vec3 reflected = reflect(unit_vector(r.direction()), rec.normal);
-        scattered = ray(rec.p, reflected + fuzziness * random_in_unit_sphere(rand_state));
+        scattered = ray(
+            rec.p, reflected + fuzziness * random_in_unit_sphere(rand_state), r.time());
         attenuation = specular::attenuation;
         return (dot(scattered.direction(), rec.normal) > 0.0f);
     }
@@ -206,9 +212,9 @@ public:
             reflect_prob = 1.0f;
         // refractamos o reflejamos aleatoriamente
         if (curand_uniform(rand_state) < reflect_prob)
-            scattered = ray(rec.p, reflected);
+            scattered = ray(rec.p, reflected, r.time());
         else
-            scattered = ray(rec.p, refracted);
+            scattered = ray(rec.p, refracted, r.time());
         return true;
     }
 

@@ -11,6 +11,7 @@
 #include "hitable_list.cuh"
 #include "material.cuh"
 #include "sphere.cuh"
+#include "moving_sphere.cuh"
 
 /* Constants */
 
@@ -222,7 +223,7 @@ __global__ void render(vec3* fb,
         u = float(i + curand_uniform(&local_state)) / float(width);
         /* v = float(j + cudaNormalDistribution(MEAN, STD, &local_state)) / float(height); */
         v = float(j + curand_uniform(&local_state)) / float(height);
-        ray r = (*cam)->get_ray(u, v);
+        ray r = (*cam)->get_ray(u, v, &local_state);
         col += color(r, world, &local_state);
     }
 
@@ -253,11 +254,11 @@ __global__ void create_world(hitable** list,
         list[1] = new sphere(vec3(0.0f, -100.5f, -1.0f), 100.0f,
                              new diffuse(vec3(0.8f, 0.8f, 0.0f)));
         list[2] =
-            new sphere(vec3(-1.0f, 0.0f, -1.0f), 0.5f, new specular(random_canonical(&local_state), 0.0f));
+            new moving_sphere(vec3(-1.0f, 0.0f, -1.0f), vec3(-1.0f, 0.3f, -1.0f), 0.5f, 0.0f, 1.0f, new specular(random_canonical(&local_state), 0.0f));
         list[3] =
             new sphere(vec3(1.0f, 0.0f, -1.0f), 0.5f, new dielectric(2.3f));
         *world = new hitable_list(list, count);
-        *cam = new camera(fov, float(width) / float(height), pos, look_at);
+        *cam = new camera(fov, float(width) / float(height), pos, look_at, 0.0f, 0.5f);
     }
 }
 
