@@ -18,6 +18,7 @@ public:
                                 float tmin,
                                 float tmax,
                                 hit_record& rec) const;
+    __device__ virtual bool bounding_box(float t0, float t1, aabb& box) const;
     vec3 center;
     float radius;
     material* mat_ptr;
@@ -52,6 +53,13 @@ __device__ bool sphere::hit(const ray& r,
         }
     }
     return false;
+}
+
+__device__ bool sphere::bounding_box(float t0, float t1, aabb& box) const
+{
+    box = aabb(center - vec3(radius, radius, radius),
+               center + vec3(radius, radius, radius));
+    return true;
 }
 
 #endif

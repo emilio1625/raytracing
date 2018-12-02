@@ -7,6 +7,7 @@
 #define _HITABLE_H_
 
 #include "ray.cuh"
+#include "aabb.cuh"
 
 class material;
 
@@ -24,6 +25,10 @@ public:
                                 float t_min,
                                 float t_max,
                                 hit_record& rec) const = 0;
+
+    __device__ virtual bool bounding_box(float t0,
+                                         float t1,
+                                         aabb& box) const = 0;
 };
 
 #endif

@@ -10,7 +10,7 @@ NVCCFLAGS      = $(NVCC_DBG) -m64
 GENCODE_FLAGS  = -gencode arch=compute_50,code=sm_50
 
 SRCS = main.cu
-INCS = vec3.cuh ray.cuh hitable.cuh hitable_list.cuh sphere.cuh camera.cuh material.cuh
+INCS = vec3.cuh ray.cuh hitable.cuh hitable_list.cuh sphere.cuh camera.cuh material.cuh moving_sphere.cuh aabb.cuh qsort.cuh bvh.cuh
 
 cudart: cudart.o
 	$(NVCC) $(NVCCFLAGS) $(GENCODE_FLAGS) -o cudart cudart.o

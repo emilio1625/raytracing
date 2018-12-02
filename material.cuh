@@ -128,7 +128,8 @@ public:
     {
         vec3 reflected = reflect(unit_vector(r.direction()), rec.normal);
         scattered = ray(
-            rec.p, reflected + fuzziness * random_in_unit_sphere(rand_state), r.time());
+            rec.p, reflected + fuzziness * random_in_unit_sphere(rand_state),
+            r.time());
         attenuation = specular::attenuation;
         return (dot(scattered.direction(), rec.normal) > 0.0f);
     }
