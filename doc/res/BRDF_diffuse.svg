@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg height="160" width="256" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <defs>
+		<marker id="tipBlack" style="overflow:visible" refX="-1" orient="auto">
+			<path style="fill:#000" d="M-6,3 L-6,-3 L1,0 z"/>
+		</marker>
+		<marker id="tipGray" style="overflow:visible" refX="-1" orient="auto">
+			<path style="fill:#999" d="M-6,3 L-6,-3 L1,0 z"/>
+		</marker>
+        <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#999" stop-opacity="1"/>
+            <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+        </linearGradient>
+    </defs>
+	<style type="text/css">
+        .arrowBlack{stroke:#000;marker-end:url(#tipBlack)}
+        .arrowGray{stroke:#999;marker-end:url(#tipGray)}
+        .stroke{stroke-width:2px;fill:none;stroke-linecap:round}
+        .thin{stroke-width:1px}
+        .black{stroke:#000}
+        .gray{stroke:#999}
+        .dashed{stroke-dasharray: 4 4}
+        .gradient{fill:url(#gradient)}
+	</style>
+    <rect class="gradient" x="8" y="128" width="240" height="32"/>    
+    <g class="stroke">
+        <path class="gray thin dashed" d="M60,128 A68,68 0 0,1 196,128"/>
+        <g class="arrowGray">
+            <path d="M128,128 L64.972304,116.886517"/>
+            <path d="M128,128 L72.574374,96.000000"/>
+            <path d="M128,128 L86.861593,78.973156"/>
+            <path d="M128,128 L106.110711,67.859672"/>
+            <path d="M128,128 L128.000000,64.000000"/>
+            <path d="M128,128 L149.889289,67.859672"/>
+            <path d="M128,128 L169.138407,78.973156"/>
+            <path d="M128,128 L183.425626,96.000000"/>
+            <path d="M128,128 L191.027696,116.886517"/>
+        </g>
+        <path class="black" d="M8,128 L248,128"/>        
+        <path class="arrowBlack" d="M8,8 L125,125"/>
+    </g>
+</svg>
