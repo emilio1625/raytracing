@@ -74,11 +74,11 @@ __global__ void destroy_world(hitable** list,
 
 int main(int argc, char const* argv[])
 {
-    int width = 640;
-    int height = 480;
+    int width = 1280;
+    int height = 720;
     int pixels = width * height;
-    int samples = 100;   // number of samples per pixel
-    int tx = 8, ty = 8;  // threads
+    int samples = 200;   // number of samples per pixel
+    int tx = 32, ty = 16;  // threads
 
     // load some textures
     int texw, texh, bpp;
@@ -212,7 +212,8 @@ __device__ vec3 color(const ray& r, hitable** world, curandState* local_state)
             vec3 unit_dir = unit_vector(cur_ray.direction());
             float t = 0.5 * (unit_dir.y() + 1.0f);
             return cur_att *
-                   lerp(t, vec3(1.0f, 1.0f, 1.0f), vec3(0.5f, 0.7f, 1.0f));
+                 lerp(t, vec3(1.0f, 1.0f, 1.0f), vec3(0.5f, 0.7f, 1.0f));
+            /* return vec3(0.0f, 0.0f, 0.0f); */
         }
     }
     return vec3(0.0f, 0.0f, 0.0f);
@@ -282,8 +283,7 @@ __global__ void create_world(hitable** list,
         curand_init(0, 0, 0, rand_state);
         curandState local_state = *rand_state;
         list[0] =
-            new sphere(vec3(0.0f, 0.0f, -2.0f), 0.5f,
-                       new diffuse(new color_tex(vec3(0.1f, 0.2f, 0.5f))));
+            new sphere(vec3(0.0f, 0.0f, -2.0f), 0.5f, new dielectric(2.3f));
         list[1] = new sphere(vec3(0.0f, -0.25f, -1.0f), 0.25f,
                              new diffuse(new image_tex(texdata, texw, texh)));
         list[2] =
@@ -294,7 +294,7 @@ __global__ void create_world(hitable** list,
             1.0f,
             new specular(new color_tex(random_canonical(&local_state)), 0.0f));
         list[4] = new sphere(
-            vec3(1.0f, 0.0f, -1.0f), 0.5f,
+            vec3(1.0f, 2.0f, -1.0f), 0.25f,
             new diffuse_light(new color_tex(vec3(1.0f, 1.0f, 1.0f))));
         *world = new hitable_list(list, count);
         *cam = new camera(fov, float(width) / float(height), pos, look_at, 0.0f,
