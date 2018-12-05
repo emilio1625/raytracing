@@ -39,6 +39,7 @@ __device__ bool sphere::hit(const ray& r,
         if (temp < t_max && temp > t_min) {
             rec.t = temp;
             rec.p = r.point_at_parameter(rec.t);
+            get_sphere_uv((rec.p - center) / radius, rec.u, rec.v);
             rec.normal = (rec.p - center) / radius;
             rec.mat_ptr = mat_ptr;
             return true;
@@ -47,6 +48,7 @@ __device__ bool sphere::hit(const ray& r,
         if (temp < t_max && temp > t_min) {
             rec.t = temp;
             rec.p = r.point_at_parameter(rec.t);
+            get_sphere_uv((rec.p - center) / radius, rec.u, rec.v);
             rec.normal = (rec.p - center) / radius;
             rec.mat_ptr = mat_ptr;
             return true;

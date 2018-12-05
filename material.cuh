@@ -10,6 +10,7 @@
 
 #include "hitable.cuh"
 #include "ray.cuh"
+#include "texture.cuh"
 
 struct hit_record;
 
@@ -69,6 +70,10 @@ public:
                                     vec3& attenuation,
                                     ray& scattered,
                                     curandState* rand_state) const = 0;
+    __device__ virtual vec3 emitted(float u, float v, const vec3& p) const
+    {
+        return vec3(0.0f, 0.0f, 0.0f);
+    }
 };
 
 /* Modelo de iluminacion de Lambert
@@ -82,7 +87,7 @@ public:
 class diffuse : public material
 {
 public:
-    __device__ diffuse(const vec3& a) : attenuation(a) {}
+    __device__ diffuse(tex* a) : albedo(a) {}
     __device__ virtual bool scatter(const ray& r,
                                     const hit_record& rec,
                                     vec3& attenuation,
@@ -96,10 +101,10 @@ public:
                             // despues, pero has visto la velocidad de la luz?
         // seria un ejercicio interesante ver el efecto de añadir un delay al
         // rayo
-        attenuation = diffuse::attenuation;
+        attenuation = albedo->value(rec.u, rec.v, rec.p);
         return true;
     }
-    vec3 attenuation;
+    tex* albedo;
 };
 
 /* Modelo de iluminacion especular
@@ -113,7 +118,7 @@ public:
 class specular : public material
 {
 public:
-    __device__ specular(const vec3& a, float fuzziness) : attenuation(a)
+    __device__ specular(tex* a, float fuzziness) : albedo(a)
     {
         if (fuzziness < 1.0f)
             specular::fuzziness = fuzziness;
@@ -130,10 +135,10 @@ public:
         scattered = ray(
             rec.p, reflected + fuzziness * random_in_unit_sphere(rand_state),
             r.time());
-        attenuation = specular::attenuation;
+        attenuation = albedo->value(rec.u, rec.v, rec.p);
         return (dot(scattered.direction(), rec.normal) > 0.0f);
     }
-    vec3 attenuation;
+    tex* albedo;
     float fuzziness;
 };
 
@@ -220,6 +225,25 @@ public:
     }
 
     float ref_idx;
+};
+
+class diffuse_light : public material
+{
+public:
+    __device__ diffuse_light(tex* a) : emit(a) {}
+    __device__ virtual bool scatter(const ray& r_in,
+                                    const hit_record& rec,
+                                    vec3& attenuation,
+                                    ray& scattered, curandState* rand_state) const
+    {
+        return false;
+    }
+    __device__ virtual vec3 emitted(float u, float v, const vec3& p) const
+    {
+        return emit->value(u, v, p);
+    }
+
+    tex* emit;
 };
 
 #endif

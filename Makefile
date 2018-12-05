@@ -3,15 +3,14 @@ HOST_COMPILER  = g++
 NVCC           = $(CUDA_PATH)/bin/nvcc -ccbin $(HOST_COMPILER)
 
 # select one of these for Debug vs. Release
-#NVCC_DBG       = -g -G
-NVCC_DBG       =
+NVCC_DBG       = -g -G
+#NVCC_DBG       =
 
 NVCCFLAGS      = $(NVCC_DBG) -m64
 GENCODE_FLAGS  = -gencode arch=compute_50,code=sm_50
 
 SRCS = main.cu
-INCS = vec3.cuh ray.cuh hitable.cuh hitable_list.cuh sphere.cuh camera.cuh material.cuh moving_sphere.cuh aabb.cuh qsort.cuh bvh.cuh
-
+INCS = vec3.cuh ray.cuh hitable.cuh hitable_list.cuh sphere.cuh camera.cuh texture.cuh material.cuh moving_sphere.cuh aabb.cuh qsort.cuh bvh.cuh stb_image.h
 cudart: cudart.o
 	$(NVCC) $(NVCCFLAGS) $(GENCODE_FLAGS) -o cudart cudart.o
 
